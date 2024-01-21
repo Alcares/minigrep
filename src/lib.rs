@@ -5,47 +5,82 @@ use std::env;
 //use regex::Regex;
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-    let dirs: Vec<PathBuf>;
-    let current_files: Vec<PathBuf>;
 
-    if let Ok((directories, files)) = list_files() {
-        dirs = directories;
-        current_files = files;
-        println!("These are the files: {:#?}", current_files);
-        for file_path in current_files {
-            let contents = fs::read_to_string(&file_path)?;
+    let mut dir_queue: Vec<PathBuf> = vec![];
+    let mut path: PathBuf = PathBuf::from(".");
+
+    loop {
+        if let Ok((directories, files)) = list_files(path) {
+            let dirs: Vec<PathBuf> = directories.iter().filter(|x| find_hidden_files(x)).cloned().collect();;
+            let current_files: Vec<PathBuf> = files.iter().filter(|x| find_hidden_files(x)).cloned().collect();
+            println!("{:?}", dirs);
+
+            for file_path in current_files {
+                let contents = fs::read_to_string(&file_path)?;
+                
+                let results = if config.ignore_case {
+                    search_case_insensitive(&config.query, &contents)
+                } else {
+                    search(&config.query, &contents)
+                };
+                if results.len() > 0 {
+                    println!("\nIn: {:?}", file_path);
+                
+                    for (index, line) in results {
+                        println!("l.{}: {line}", index + 1);
+                        ();
+                    }
+                } 
+            }
             
-            let results = if config.ignore_case {
-                search_case_insensitive(&config.query, &contents)
-            } else {
-                search(&config.query, &contents)
-            };
+            dir_queue.extend(dirs.iter().map(|p| p.to_owned()));
 
-            println!("\n\nIn: {:?}", file_path);
-            for (index, line) in results {
-                println!("l.{}: {line}", index + 1);
-            } 
-        }        
-    } else {
-        ();
+            if dir_queue.len() < 1 || !config.recursive {
+                break;
+            } else {
+                path = dir_queue.pop().expect("HEHEHHE");
+            }
+
+
+        } else {
+            break ();
+        }
     }
-    
 
     Ok(())
 }
 
 
-fn list_files() -> io::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
-    let (dirs, files): (Vec<PathBuf>, Vec<PathBuf>) = fs::read_dir(".")?
+fn find_hidden_files(input: &PathBuf) -> bool {
+    let string_path: String = input.to_string_lossy().into_owned();
+    let parts: Vec<&str> = string_path.split('/').collect();
+
+    if let Some(last_part) = parts.last() {
+        if !last_part.is_empty() && last_part.starts_with('.') {
+            false
+        } else {
+            true
+        }
+    } else {
+        false
+    }
+}
+
+
+fn list_files(path: PathBuf) -> io::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
+    let (dirs, files): (Vec<PathBuf>, Vec<PathBuf>) = fs::read_dir(path)?
         .map(|res| res.map(|e| e.path()))
         .fold((Vec::new(), Vec::new()), |(mut dirs, mut files), res| {
             match res {
                 Ok(entry) => {
-                    if entry.is_dir() {
-                        dirs.push(entry);
-                    } else {
-                        files.push(entry);
-                    }
+                        
+                        if entry.is_dir() {
+                            dirs.push(entry);
+                        } else {
+                            if is_utf8_file(&entry) {
+                                files.push(entry);
+                            }
+                        } 
                 }
                 Err(_) => {} // Ignore errors for simplicity, handle them as needed
             }
@@ -116,6 +151,12 @@ pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<(usize
         .collect()
 }
 
+fn is_utf8_file(path: &PathBuf) -> bool {
+    match fs::read_to_string(path) {
+        Ok(_) => true,  // File is successfully read as UTF-8
+        Err(_) => false, // File is not UTF-8 encoded or an error occurred
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -148,3 +189,4 @@ Trust me.";
         );
     }
 }
+
