@@ -11,10 +11,11 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 
     loop {
         if let Ok((directories, files)) = list_files(path) {
-            let dirs: Vec<PathBuf> = directories.iter().filter(|x| find_hidden_files(x)).cloned().collect();;
-            let current_files: Vec<PathBuf> = files.iter().filter(|x| find_hidden_files(x)).cloned().collect();
-            println!("{:?}", dirs);
-
+            let dirs: Vec<PathBuf> = if !config.hidden { directories.iter().filter(|x| find_hidden_files(x)).cloned().collect() }
+                                                      else { directories };
+            let current_files: Vec<PathBuf> = if !config.hidden { files.iter().filter(|x| find_hidden_files(x)).cloned().collect() }
+                                              else { files };
+            
             for file_path in current_files {
                 let contents = fs::read_to_string(&file_path)?;
                 
@@ -27,7 +28,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
                     println!("\nIn: {:?}", file_path);
                 
                     for (index, line) in results {
-                        println!("l.{}: {line}", index + 1);
+                        println!("l.{:03}: {}", index + 1, line.trim());
                         ();
                     }
                 } 
@@ -97,6 +98,7 @@ pub struct Config {
    pub file_path: String,
    pub ignore_case: bool,
    pub recursive: bool,
+   pub hidden: bool,
 }
 
 
@@ -119,7 +121,8 @@ impl Config {
             match arg.as_str() {
                 "-i" => config.ignore_case = true,
                 "-r" => config.recursive = true,
-                _ => return Err("Unknown flag or parameter"),
+                "-a" => config.hidden = true,
+                _    => return Err("Unknown flag or parameter"),
             }
         }
 
