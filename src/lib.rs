@@ -7,7 +7,7 @@ use std::env;
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
 
     let mut dir_queue: Vec<PathBuf> = vec![];
-    let mut path: PathBuf = PathBuf::from(".");
+    let mut path: PathBuf = PathBuf::from(&config.file_path);
 
     loop {
         if let Ok((directories, files)) = list_files(path) {
@@ -26,7 +26,12 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
                 };
                 if results.len() > 0 {
                     println!("\nIn: {:?}", file_path);
-                
+
+                    if config.count {
+                        println!("Found: {} occurrences", results.len());
+                        continue
+                    }
+
                     for (index, line) in results {
                         println!("l.{:03}: {}", index + 1, line.trim());
                         ();
@@ -39,7 +44,7 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
             if dir_queue.len() < 1 || !config.recursive {
                 break;
             } else {
-                path = dir_queue.pop().expect("HEHEHHE");
+                path = dir_queue.pop().expect("This is the test");
             }
 
 
@@ -94,11 +99,12 @@ fn list_files(path: PathBuf) -> io::Result<(Vec<PathBuf>, Vec<PathBuf>)> {
 
 #[derive(Default)]
 pub struct Config {
-   pub query: String,
-   pub file_path: String,
-   pub ignore_case: bool,
-   pub recursive: bool,
-   pub hidden: bool,
+    pub query: String,
+    pub file_path: String,
+    pub ignore_case: bool,
+    pub recursive: bool,
+    pub hidden: bool,
+    pub count: bool,
 }
 
 
@@ -114,7 +120,7 @@ impl Config {
         
         let query = args_iter.next().ok_or("Missing query argument")?.to_string();
         let file_path = args_iter.next().ok_or("Missing file path argument")?.to_string();
-        
+
         let mut config = Config::default();
 
         while let Some(arg) = args_iter.next() {
@@ -122,6 +128,7 @@ impl Config {
                 "-i" => config.ignore_case = true,
                 "-r" => config.recursive = true,
                 "-a" => config.hidden = true,
+                "-c" => config.count = true,
                 _    => return Err("Unknown flag or parameter"),
             }
         }
@@ -193,3 +200,6 @@ Trust me.";
     }
 }
 
+
+// TODO: Support regular expressions
+// TODO: Turn this project into a installable application
