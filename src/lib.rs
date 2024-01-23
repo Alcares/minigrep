@@ -2,10 +2,10 @@ use std::{fs, io};
 use std::path::PathBuf;
 use std::error::Error;
 use std::env;
-//use regex::Regex;
+use regex::Regex;
+// use std::default::Default;
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
-
     let mut dir_queue: Vec<PathBuf> = vec![];
     let mut path: PathBuf = PathBuf::from(&config.file_path);
 
@@ -25,15 +25,15 @@ pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
                     search(&config.query, &contents)
                 };
                 if results.len() > 0 {
-                    println!("\nIn: {:?}", file_path);
+                    println!("\n{}", "\x1b[32m".to_string() + &*file_path.to_string_lossy() + "\x1b[0m");
 
                     if config.count {
-                        println!("Found: {} occurrences", results.len());
+                        println!("{} occurrences", results.len());
                         continue
                     }
 
                     for (index, line) in results {
-                        println!("l.{:03}: {}", index + 1, line.trim());
+                        println!("{:03}: {}", index + 1, line.trim());
                         ();
                     }
                 } 
@@ -117,8 +117,8 @@ impl Config {
         let mut args_iter = args.iter();
         
         args_iter.next();
-        
         let query = args_iter.next().ok_or("Missing query argument")?.to_string();
+
         let file_path = args_iter.next().ok_or("Missing file path argument")?.to_string();
 
         let mut config = Config::default();
@@ -145,19 +145,23 @@ impl Config {
 
 
 pub fn search<'a>(query: &str, contents: &'a str) -> Vec<(usize, &'a str)> {
+    let regex = Regex::new(&query.to_lowercase()).expect("Invalid regular expression");
+
     contents
         .lines()
         .enumerate()
-        .filter(|(_, line)| line.contains(query))
+        .filter(|(_, line)| regex.is_match(line))
         .collect()
 }
 
 
 pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<(usize, &'a str)> {
+    let regex = Regex::new(&query.to_lowercase()).expect("Invalid regular expression");
+
     contents
         .lines()
         .enumerate()
-        .filter(|(_, line)| line.to_lowercase().contains(&query.to_lowercase()))
+        .filter(|(_, line)| regex.is_match(line))
         .collect()
 }
 
@@ -200,6 +204,4 @@ Trust me.";
     }
 }
 
-
-// TODO: Support regular expressions
 // TODO: Turn this project into a installable application
