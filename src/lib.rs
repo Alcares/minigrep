@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::error::Error;
 use std::env;
 use regex::Regex;
-// use std::default::Default;
+use std::default::Default;
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
     let mut dir_queue: Vec<PathBuf> = vec![];
